@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone 
 from flask import Flask, render_template, request, jsonify
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -11,8 +11,14 @@ MONGO_URI = os.getenv("MONGO_URI")
 app = Flask(__name__)
 
 try:
-    client = MongoClient(MONGO_URI)
-    db = client.email_automation_db 
+    if "mongodb+srv://" in MONGO_URI:
+        client = MongoClient(MONGO_URI)
+        print("Connecting to MongoDB Atlas...")
+    else:
+        client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
+        print("Connecting to local MongoDB...")
+
+    db = client.email_automation_db
     subscribers_collection = db.subscribers
     campaigns_collection = db.campaigns
     print("API Server connected to MongoDB.")
@@ -23,7 +29,6 @@ except Exception as e:
 def format_campaign(campaign):
     """Converts MongoDB document to JSON serializable dict."""
     campaign['id'] = str(campaign.pop('_id'))
-   
     campaign['schedule_time'] = campaign['schedule_time'].isoformat()
     campaign['created_at'] = campaign['created_at'].isoformat()
     return campaign
@@ -52,11 +57,15 @@ def handle_subscribers():
             {"$set": {
                 "name": data.get('name', ''),
                 "status": "active",
-                "joined_at": datetime.utcnow()
+                "joined_at": datetime.now(timezone.utc)
             }},
             upsert=True
         )
-        return jsonify({"message": "Subscriber added/updated", "id": str(result.upserted_id or result.modified_count)})
+        return jsonify({
+            "message": "Subscriber added/updated",
+            "id": str(result.upserted_id or result.modified_count)
+        })
+
 
 @app.route('/api/campaigns', methods=['GET', 'POST'])
 def handle_campaigns():
@@ -67,59 +76,55 @@ def handle_campaigns():
 
     elif request.method == 'POST':
         data = request.get_json()
-        
         if not all(k in data for k in ['name', 'subject', 'body_html']):
             return jsonify({"message": "Missing required fields"}), 400
-        
+
         schedule_time_str = data.get('schedule_time')
         if schedule_time_str:
-             try:
-                 schedule_time = datetime.fromisoformat(schedule_time_str)
-             except ValueError:
-                 return jsonify({"message": "Invalid schedule_time format. Use ISO 8601."}), 400
+            try:
+                schedule_time = datetime.fromisoformat(schedule_time_str).replace(tzinfo=timezone.utc)
+            except ValueError:
+                return jsonify({"message": "Invalid schedule_time format. Use ISO 8601."}), 400
         else:
-             schedule_time = datetime.utcnow() + timedelta(minutes=5)
-             
+            schedule_time = datetime.now(timezone.utc) + timedelta(minutes=5)
+                 
         campaign_doc = {
             "name": data['name'],
             "subject": data['subject'],
             "body_html": data['body_html'],
             "schedule_time": schedule_time,
             "status": "pending",
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "sent_count": 0
         }
         
         result = campaigns_collection.insert_one(campaign_doc)
         return jsonify({"message": "Campaign scheduled", "id": str(result.inserted_id)})
 
+
 @app.route('/api/campaigns/<campaign_id>', methods=['DELETE'])
 def delete_campaign(campaign_id):
     """Deletes a campaign document from MongoDB by its ID."""
     try:
-        
         result = campaigns_collection.delete_one({"_id": ObjectId(campaign_id), "status": "pending"})
         
         if result.deleted_count == 1:
             return jsonify({"message": f"Campaign {campaign_id} deleted successfully."}), 200
         else:
-
             return jsonify({"message": "Campaign not found, already completed, or ID is invalid."}), 404
             
-    except Exception as e:
-        
-        return jsonify({"message": f"Error processing request: Invalid ID format."}), 400
+    except Exception:
+        return jsonify({"message": "Error processing request: Invalid ID format."}), 400
 
 
 if __name__ == '__main__':
-    
     if subscribers_collection.count_documents({}) == 0:
         subscribers_collection.insert_one({
             "email": "test@example.com",
             "name": "Test User",
             "status": "active",
-            "joined_at": datetime.utcnow()
+            "joined_at": datetime.now(timezone.utc)
         })
-        print("API Server: Added a default subscriber for testing.")
+        print("📩 API Server: Added a default subscriber for testing.")
         
-    app.run(debug=True, port=5000, use_reloader=False) 
+    app.run(debug=True, port=5000)
