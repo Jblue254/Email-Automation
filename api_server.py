@@ -1,9 +1,10 @@
 import os
-from datetime import datetime, timedelta, timezone 
+from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, jsonify
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from bson.objectid import ObjectId
+import certifi
 
 load_dotenv()
 
@@ -12,16 +13,26 @@ app = Flask(__name__)
 
 try:
     if "mongodb+srv://" in MONGO_URI:
-        client = MongoClient(MONGO_URI)
         print("Connecting to MongoDB Atlas...")
+        client = MongoClient(
+            MONGO_URI,
+            tls=True,
+            tlsCAFile=certifi.where(),  
+            serverSelectionTimeoutMS=30000
+        )
     else:
-        client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
         print("Connecting to local MongoDB...")
+        client = MongoClient(
+            MONGO_URI,
+            tls=True,
+            tlsAllowInvalidCertificates=True
+        )
 
     db = client.email_automation_db
     subscribers_collection = db.subscribers
     campaigns_collection = db.campaigns
     print("API Server connected to MongoDB.")
+
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     exit(1)
@@ -66,7 +77,6 @@ def handle_subscribers():
             "id": str(result.upserted_id or result.modified_count)
         })
 
-
 @app.route('/api/campaigns', methods=['GET', 'POST'])
 def handle_campaigns():
     if request.method == 'GET':
@@ -101,7 +111,6 @@ def handle_campaigns():
         result = campaigns_collection.insert_one(campaign_doc)
         return jsonify({"message": "Campaign scheduled", "id": str(result.inserted_id)})
 
-
 @app.route('/api/campaigns/<campaign_id>', methods=['DELETE'])
 def delete_campaign(campaign_id):
     """Deletes a campaign document from MongoDB by its ID."""
@@ -116,8 +125,8 @@ def delete_campaign(campaign_id):
     except Exception:
         return jsonify({"message": "Error processing request: Invalid ID format."}), 400
 
-
 if __name__ == '__main__':
+    
     if subscribers_collection.count_documents({}) == 0:
         subscribers_collection.insert_one({
             "email": "test@example.com",
@@ -125,6 +134,9 @@ if __name__ == '__main__':
             "status": "active",
             "joined_at": datetime.now(timezone.utc)
         })
-        print("📩 API Server: Added a default subscriber for testing.")
-        
-    app.run(debug=True, port=5000)
+        print("API Server: Added a default subscriber for testing.")
+
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
+
+
