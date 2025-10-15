@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Automation Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f7f6; }
+        h1, h2 { color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 6px; }
+        form input, form textarea { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        form button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .status-pending { color: orange; font-weight: bold; }
+        .status-completed { color: green; font-weight: bold; }
+        .delete-btn { background-color: #dc3545; color: white; padding: 5px 8px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Email Automation Dashboard</h1>
+        
+        <div class="section">
+            <h2>1. Add Subscriber</h2>
+            <form id="subscriberForm">
+                <input type="email" id="subEmail" placeholder="Email Address" required>
+                <input type="text" id="subName" placeholder="Name (optional)">
+                <button type="submit">Add Subscriber</button>
+            </form>
+
+            <h3>Recent Subscribers</h3>
+            <table id="subscriberTable">
+                <thead>
+                    <tr><th>Email</th><th>Name</th><th>Status</th><th>Joined</th></tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>2. Schedule New Campaign / Save Draft</h2>
+            <form id="campaignForm">
+                <input type="text" id="campName" >
+                <input type="text" id="campSubject">
+                <textarea id="campBody"></textarea>
+                <input type="datetime-local" id="campScheduleTime">
+                
+                <button type="submit">Schedule Campaign / Save Draft</button>
+            </form>
+
+            <h3>Campaign Status</h3>
+            <table id="campaignTable">
+                <thead>
+                    <tr><th>Name</th><th>Status</th><th>Schedule Time </th><th>Sent Count</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSubscribers();
+            loadCampaigns();
+            
+            document.getElementById('subscriberForm').addEventListener('submit', handleAddSubscriber);
+            document.getElementById('campaignForm').addEventListener('submit', handleScheduleCampaign);
+        });
+
+       
+        async function loadSubscribers() {
+            const response = await fetch('/api/subscribers');
+            const data = await response.json();
+            const tableBody = document.querySelector('#subscriberTable tbody');
+            tableBody.innerHTML = '';
+            
+            data.forEach(sub => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = sub.email;
+                row.insertCell().textContent = sub.name;
+                row.insertCell().textContent = sub.status;
+                row.insertCell().textContent = new Date(sub.joined_at).toLocaleString();
+            });
+        }
+
+        async function loadCampaigns() {
+            const response = await fetch('/api/campaigns');
+            const data = await response.json();
+            const tableBody = document.querySelector('#campaignTable tbody');
+            tableBody.innerHTML = '';
+
+            data.forEach(camp => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = camp.name;
+                
+                const statusCell = row.insertCell();
+                statusCell.textContent = camp.status;
+                statusCell.className = `status-${camp.status}`;
+
+                row.insertCell().textContent = new Date(camp.schedule_time).toLocaleString();
+                row.insertCell().textContent = camp.sent_count;
+                
+               
+                const actionCell = row.insertCell();
+                if (camp.status === 'pending') {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = ' Delete Draft';
+                    deleteBtn.className = 'delete-btn';
+                    
+                    
+                    deleteBtn.onclick = () => handleDeleteCampaign(camp.id, camp.name); 
+                    
+                    actionCell.appendChild(deleteBtn);
+                } else {
+                     actionCell.textContent = 'Sent';
+                }
+            });
+        }
+        
+       
+        async function handleDeleteCampaign(campaignId, campaignName) {
+            if (!confirm(`Are you sure you want to delete the draft: "${campaignName}"? This action cannot be undone.`)) {
+                return; 
+            }
+
+            try {
+                const response = await fetch(`/api/campaigns/${campaignId}`, {
+                    method: 'DELETE',
+                });
+
+                if (response.ok) {
+                    alert(`Draft "${campaignName}" deleted successfully.`);
+                    loadCampaigns(); 
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to delete draft: ${error.message || 'Server error'}`);
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                alert('Could not connect to the server to delete the campaign.');
+            }
+        }
+
+
+       
+        async function handleAddSubscriber(event) {
+            event.preventDefault();
+            const email = document.getElementById('subEmail').value;
+            const name = document.getElementById('subName').value;
+            
+            await fetch('/api/subscribers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, name })
+            });
+
+            document.getElementById('subscriberForm').reset();
+            loadSubscribers();
+            alert('Subscriber updated/added!');
+        }
+
+        async function handleScheduleCampaign(event) {
+            event.preventDefault();
+            
+            const scheduleTimeInput = document.getElementById('campScheduleTime').value;
+            let schedule_time = scheduleTimeInput ? new Date(scheduleTimeInput).toISOString() : null;
+
+            const campaignData = {
+                name: document.getElementById('campName').value,
+                subject: document.getElementById('campSubject').value,
+                body_html: document.getElementById('campBody').value,
+                schedule_time: schedule_time
+            };
+
+            const response = await fetch('/api/campaigns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(campaignData)
+            });
+
+            if (response.ok) {
+                alert('Campaign scheduled successfully! Check status below.');
+                document.getElementById('campaignForm').reset();
+                loadCampaigns();
+            } else {
+                const error = await response.json();
+                alert(`Failed to schedule: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
