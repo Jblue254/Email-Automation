@@ -124,7 +124,6 @@ def delete_campaign(campaign_id):
     except Exception:
         return jsonify({"message": "Error processing request: Invalid ID format."}), 400
 
-
 if __name__ == '__main__':
     if subscribers_collection is not None and subscribers_collection.count_documents({}) == 0:
         subscribers_collection.insert_one({
@@ -135,4 +134,7 @@ if __name__ == '__main__':
         })
         print("API Server: Added a default subscriber for testing.")
 
-    app.run(debug=True, port=5000)
+    
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
+
