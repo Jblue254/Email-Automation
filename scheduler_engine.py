@@ -7,9 +7,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 load_dotenv()
 
-
 MONGO_URI = os.getenv("MONGO_URI")
-
 
 try:
     
@@ -23,7 +21,6 @@ except Exception as e:
    
     exit(1)
 
-
 def send_email_via_esp(recipient_email, subject, body_html):
     """
     Simulates calling an Email Service Provider API (e.g., SendGrid, Mailgun).
@@ -32,15 +29,12 @@ def send_email_via_esp(recipient_email, subject, body_html):
     time.sleep(0.05) 
     return True 
 
-
 def check_and_send_scheduled_emails():
     """
     The main scheduler job. Runs every 60 seconds to process due campaigns.
     """
-   
     now = datetime.now(timezone.utc) 
     print(f"\n[{now.strftime('%H:%M:%S UTC')}] Scheduler checking for due campaigns...")
-    
     
     due_campaigns = campaigns_collection.find({
         "status": "pending",
@@ -58,8 +52,7 @@ def check_and_send_scheduled_emails():
         active_subscribers = subscribers_collection.find({"status": "active"})
         
         sent_count = 0
-        
-        
+
         for subscriber in active_subscribers:
             recipient = subscriber.get("email")
             subject = campaign.get("subject", "Automated Email")
@@ -68,7 +61,6 @@ def check_and_send_scheduled_emails():
             if send_email_via_esp(recipient, subject, body):
                 sent_count += 1
                 
-        
         campaigns_collection.update_one(
             {"_id": campaign_id},
             {"$set": {

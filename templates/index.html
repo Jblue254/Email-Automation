@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Automation Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f7f6; }
+        body { margin: 20px; background-color: #f4f7f6; }
         h1, h2 { color: #333; }
-        .container { max-width: 900px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .section { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 6px; }
         form input, form textarea { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         form button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
@@ -24,14 +23,14 @@
         <h1>Email Automation Dashboard</h1>
         
         <div class="section">
-            <h2>1. Add Subscriber</h2>
+            <h2>1. Add persons</h2>
             <form id="subscriberForm">
                 <input type="email" id="subEmail" placeholder="Email Address" required>
                 <input type="text" id="subName" placeholder="Name (optional)">
                 <button type="submit">Add Subscriber</button>
             </form>
 
-            <h3>Recent Subscribers</h3>
+            <h3>Recent persons</h3>
             <table id="subscriberTable">
                 <thead>
                     <tr><th>Email</th><th>Name</th><th>Status</th><th>Joined</th></tr>
@@ -42,17 +41,17 @@
         </div>
         
         <div class="section">
-            <h2>2. Schedule New Campaign / Save Draft</h2>
+            <h2>2. Schedule New work / Save Draft</h2>
             <form id="campaignForm">
                 <input type="text" id="campName" >
                 <input type="text" id="campSubject">
                 <textarea id="campBody"></textarea>
                 <input type="datetime-local" id="campScheduleTime">
                 
-                <button type="submit">Schedule Campaign / Save Draft</button>
+                <button type="submit">Schedule work / Save Draft</button>
             </form>
 
-            <h3>Campaign Status</h3>
+            <h3>Work Status</h3>
             <table id="campaignTable">
                 <thead>
                     <tr><th>Name</th><th>Status</th><th>Schedule Time </th><th>Sent Count</th><th>Action</th></tr>

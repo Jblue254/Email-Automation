@@ -28,14 +28,10 @@ def format_campaign(campaign):
     campaign['created_at'] = campaign['created_at'].isoformat()
     return campaign
 
-
-
 @app.route('/')
 def index():
     """Renders the single page application (SPA) template."""
     return render_template('index.html')
-
-
 
 @app.route('/api/subscribers', methods=['GET', 'POST'])
 def handle_subscribers():
@@ -84,7 +80,6 @@ def handle_campaigns():
         else:
              schedule_time = datetime.utcnow() + timedelta(minutes=5)
              
-        
         campaign_doc = {
             "name": data['name'],
             "subject": data['subject'],
@@ -97,7 +92,6 @@ def handle_campaigns():
         
         result = campaigns_collection.insert_one(campaign_doc)
         return jsonify({"message": "Campaign scheduled", "id": str(result.inserted_id)})
-
 
 @app.route('/api/campaigns/<campaign_id>', methods=['DELETE'])
 def delete_campaign(campaign_id):
